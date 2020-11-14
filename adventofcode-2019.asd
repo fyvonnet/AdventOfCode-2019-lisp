@@ -2,9 +2,10 @@
            :description "Advent of Code 2019 in LISP"
            :author "Franck YVONNET"
            :serial t
-           :depends-on (:cl-ppcre :iterate :alexandria)
+           :depends-on (:cl-ppcre :iterate :alexandria :trivia)
            :components ((:file "intcode")
                         (:file "aoc-coord")
                         (:file "day01")
                         (:file "day02")
-                        (:file "day03")))
+                        (:file "day03")
+                        (:file "day04")))
