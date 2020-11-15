@@ -13,23 +13,26 @@
       do (setf n (floor n 10)))))
 
 (defun is-valid (n)
-  (loop with digits = (digit-list n)
-        with valid = nil
-        with previous-digit   = -1
-        with digit-repeats   = 1
-        for current-digit = (first digits)
-        do (cond
-             ((or (null digits) (< previous-digit current-digit))
-              (cond
-                ((= digit-repeats 2) (setf valid 'both))
-                ((> digit-repeats 2) (unless valid (setf valid 'first-only))))
-              (setf digit-repeats 1))
-             ((> previous-digit current-digit) (return-from is-valid nil))
-             ((= previous-digit current-digit) (incf digit-repeats)))
-        until (null digits)
-        do (pop digits)
-        do (setf previous-digit current-digit)
-        finally (return-from is-valid valid)))
+  (let*
+    ((digits (format nil "~a " n))
+     (valid nil)
+     (previous-digit (aref digits 0))
+     (digit-repeats 1))
+    (when (= (length digits) 7)
+      (loop
+        for i from 1 to 6 do
+        (let
+          ((current-digit (aref digits i)))
+          (cond
+            ((or (= i 6) (char< previous-digit current-digit))
+             (cond
+               ((= digit-repeats 2) (setf valid 'both))
+               ((> digit-repeats 2) (unless valid (setf valid t))))
+             (setf digit-repeats 1))
+            ((char> previous-digit current-digit) (return-from is-valid nil))
+            ((char= previous-digit current-digit) (incf digit-repeats)))
+          (setf previous-digit current-digit))))
+    valid))
 
 (defun main ()
   (match
