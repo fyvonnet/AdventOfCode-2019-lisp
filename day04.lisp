@@ -5,13 +5,6 @@
 (in-package :day04)
 
 
-(defun digit-list (n)
-  (reverse 
-    (loop
-      until (zerop n)
-      collect (rem n 10)
-      do (setf n (floor n 10)))))
-
 (defun is-valid (n)
   (let*
     ((digits (format nil "~a " n))
