@@ -1,18 +1,24 @@
 (defpackage :day06
   (:use :cl :cl-ppcre :queues)
+  (:import-from :fset
+                :contains?
+                :empty-map
+                :empty-set
+                :lookup
+                :with)
   (:export main))
 
 (in-package :day06)
 
 
-(defparameter *graph* (make-hash-table :test 'equal))
+(defparameter *graph* (empty-map))
 
 
 (defun explore-graph (init-name init-depth test-name set-solution)
   (loop
     with queue = (make-queue :simple-queue)
     with solution = 0
-    with visited = (make-hash-table :test 'equal)
+    with visited = (empty-set)
     initially (progn
                 (qpush queue init-name)
                 (qpush queue init-depth))
@@ -20,20 +26,21 @@
     for depth = (qpop queue)
     until (funcall test-name name)
     do (progn
-         (setf (gethash name visited) t)
+         (setf visited (with visited name))
          (setf solution (funcall set-solution solution depth))
-         (dolist (n (gethash name *graph*))
-           (unless (gethash n visited)
+         (dolist (n (lookup *graph* name))
+           (unless (contains? visited n)
              (qpush queue n)
              (qpush queue (1+ depth)))))
     finally (format t "~a~%" solution)))
 
-(defun populate-graph (input key-func val-func)
-  (dolist (orbit input)
-    (let ((lst (gethash (funcall key-func orbit) *graph*)))
-      (setf
-        (gethash (funcall key-func orbit) *graph*)
-        (cons (funcall val-func orbit) lst)))))
+(defun populate-graph (input)
+  (setf
+    *graph*
+    (reduce
+      (lambda (g i) (with g (first i) (cons (second i) (lookup g (first i)))))
+      input
+      :initial-value *graph*)))
 
 (defun main ()
   (let
@@ -44,7 +51,7 @@
            while line
            collect (split "\\)" line)))))
 
-    (populate-graph input #'first #'second)
+    (populate-graph input)
     (explore-graph "COM"  0 (lambda (n) (null n)) #'+)
-    (populate-graph input #'second #'first)
-    (explore-graph "YOU" -1 (lambda (n) (string= n "SAN")) (lambda (s d) d))))
+    (populate-graph (mapcar #'reverse input))
+    (explore-graph "YOU" -1 (lambda (n) (string= n "SAN")) (lambda (_ d) d))))
