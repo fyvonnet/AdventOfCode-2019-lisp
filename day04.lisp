@@ -5,27 +5,26 @@
 (in-package :day04)
 
 
-(defun is-valid (n)
-  (let*
-    ((digits (format nil "~a " n))
-     (valid nil)
-     (previous-digit (aref digits 0))
-     (digit-repeats 1))
-    (when (= (length digits) 7)
-      (loop
-        for i from 1 to 6 do
-        (let
-          ((current-digit (aref digits i)))
-          (cond
-            ((or (= i 6) (char< previous-digit current-digit))
-             (cond
-               ((= digit-repeats 2) (setf valid 'both))
-               ((> digit-repeats 2) (unless valid (setf valid t))))
-             (setf digit-repeats 1))
-            ((char> previous-digit current-digit) (return-from is-valid nil))
-            ((char= previous-digit current-digit) (incf digit-repeats)))
-          (setf previous-digit current-digit))))
-    valid))
+(defun is-valid (num)
+  (loop
+    with repeat = 1
+    with valid = nil
+    with num-lst = (coerce (write-to-string num) 'list)
+    for a = (first  num-lst)
+    for b = (second num-lst)
+    until (null num-lst)
+    do (progn
+         (cond
+           ((or (null b) (char< a b))
+            (cond
+              ((= repeat 2) (setf valid 'both))
+              ((> repeat 2) (unless valid (setf valid 'first-only))))
+            (setf repeat 1))
+           ((char= a b) (incf repeat))
+           ((char> a b) (return-from is-valid nil)))
+         (setf num-lst (rest num-lst)))
+    finally (return valid)))
+
 
 (defun main ()
   (match
@@ -36,6 +35,5 @@
      (loop for n from begin to end
            for valid = (is-valid n)
            count valid into nvalid
-           count (eq valid 'both) into ntwo
-           finally (print nvalid)
-           (print ntwo)))))
+           count (eq valid 'both) into nboth
+           finally (format t "~a~%~a~%" nvalid nboth)))))
