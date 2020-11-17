@@ -5,7 +5,7 @@
           :get-x
           :get-y
           :*coord-origin*
-          :+all-absolute-dirs+
+          :*all-absolute-dirs*
           :coord+
           :coord-
           :coord=
@@ -29,7 +29,7 @@
 (defun get-y (coord) (cdr coord))
 
 (defvar *coord-origin* (make-coord 0 0))
-(defconstant +all-absolute-dirs+ '(north east south west))
+(defparameter *all-absolute-dirs* '(north east south west))
 
 (defun coord+ (a b)
   (cons (+ (get-x a) (get-x b)) (+ (get-y a) (get-y b))))
