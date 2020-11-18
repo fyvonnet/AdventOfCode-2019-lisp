@@ -17,7 +17,7 @@
           :manhattan-distance-from-origin
           :coord-angle
           :next-column
-          :next-row
+          :next-line
           :left :right :front :back
           :north :south :east :west))
 
@@ -94,4 +94,4 @@
   (atan (cdr crd) (car crd)))
 
 (defun next-column (crd) (cons (1+ (get-x crd)) (get-y crd)))
-(defun next-row    (crd) (cons 0 (1+ (get-y crd))))
+(defun next-line   (crd) (cons 0 (1+ (get-y crd))))
