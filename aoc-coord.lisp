@@ -1,25 +1,26 @@
 (defpackage :aoc-coord
-  (:use :cl)
+  (:use :cl :iterate)
   (:export :make-coord
-          :make-coord
-          :get-x
-          :get-y
-          :*coord-origin*
-          :*all-absolute-dirs*
-          :coord+
-          :coord-
-          :coord=
-          :coord<
-          :coordp
-          :next-coord
-          :turn
-          :manhattan-distance
-          :manhattan-distance-from-origin
-          :coord-angle
-          :next-column
-          :next-line
-          :left :right :front :back
-          :north :south :east :west))
+           :make-coord
+           :get-x
+           :get-y
+           :*coord-origin*
+           :*all-absolute-dirs*
+           :coord+
+           :coord-
+           :coord=
+           :coord<
+           :coordp
+           :next-coord
+           :turn
+           :manhattan-distance
+           :manhattan-distance-from-origin
+           :coord-angle
+           :next-column
+           :next-line
+           :get-coords-limits
+           :left :right :front :back
+           :north :south :east :west))
 
 (in-package :aoc-coord)
 
@@ -64,25 +65,25 @@
 
 (defun turn (reldir absdir)
   (ccase reldir
-    (left
-      (case absdir
-        (north 'west )
-        (west  'south)
-        (south 'east )
-        (east  'north)))
-    (right
-      (case absdir
-        (north 'east )
-        (east  'south)
-        (south 'west )
-        (west  'north)))
-    (back
-      (case absdir
-        (north 'south)
-        (south 'north)
-        (east  'west )
-        (west  'east )))
-    (front absdir)))
+         (left
+           (case absdir
+             (north 'west )
+             (west  'south)
+             (south 'east )
+             (east  'north)))
+         (right
+           (case absdir
+             (north 'east )
+             (east  'south)
+             (south 'west )
+             (west  'north)))
+         (back
+           (case absdir
+             (north 'south)
+             (south 'north)
+             (east  'west )
+             (west  'east )))
+         (front absdir)))
 
 (defun manhattan-distance (p q)
   (+ (abs (- (get-x p) (get-x q))) (abs (- (get-y p) (get-y q)))))
@@ -95,3 +96,13 @@
 
 (defun next-column (crd) (cons (1+ (get-x crd)) (get-y crd)))
 (defun next-line   (crd) (cons 0 (1+ (get-y crd))))
+
+(defun get-coords-limits (list)
+  (iterate
+    (for coord in list)
+    (for x-min first (get-x coord) then (min x-min (get-x coord)))
+    (for y-min first (get-y coord) then (min y-min (get-y coord)))
+    (for x-max first (get-x coord) then (max x-max (get-x coord)))
+    (for y-max first (get-y coord) then (max y-max (get-y coord)))
+    (finally (return (list :x-min x-min :y-min y-min :x-max x-max :y-max y-max )))))
+
