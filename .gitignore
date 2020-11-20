@@ -18,3 +18,4 @@
 inputs
 .*.swp
 template.lisp
+*.bak
