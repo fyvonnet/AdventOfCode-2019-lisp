@@ -1,5 +1,5 @@
 (defpackage :day06
-  (:use :cl :cl-ppcre :queues)
+  (:use :cl :cl-ppcre :functional-queue :trivia)
   (:import-from :fset
                 :contains?
                 :empty-map
@@ -11,42 +11,40 @@
 (in-package :day06)
 
 
-(defun explore-graph (graph init-name init-depth test-name set-solution)
-  (loop
-    with queue = (make-queue :simple-queue)
-    with solution = 0
-    with visited = (empty-set)
-    initially (progn
-                (qpush queue init-name)
-                (qpush queue init-depth))
-    for name  = (qpop queue)
-    for depth = (qpop queue)
-    until (funcall test-name name)
-    do (progn
-         (setf visited (with visited name))
-         (setf solution (funcall set-solution solution depth))
-         (dolist (n (lookup graph name))
-           (unless (contains? visited n)
-             (qpush queue n)
-             (qpush queue (1+ depth)))))
-    finally (format t "~a~%" solution)))
+(defun explore-graph (graph start-name end-name update-solution)
+  (labels
+    ((rec (queue visited solution)
+       (let*
+         ((d (queue-head queue)) (depth (car d)) (name  (cdr d)))
+         (if (string= name end-name)
+           solution
+           (rec
+             (reduce
+               (lambda (q n) (queue-snoc q (cons (1+ depth) n)))
+               (remove-if (lambda (n) (contains? visited n)) (lookup graph name))
+               :initial-value (queue-tail queue))
+             (with visited name)
+             (funcall update-solution solution depth))))))
+    (rec (queue-snoc (empty-queue) (cons 0 start-name)) (empty-set) 0)))
 
 (defun populate-graph (graph input)
   (reduce
     (lambda (g i) (with g (first i) (cons (second i) (lookup g (first i)))))
-    input
-    :initial-value graph))
+    input :initial-value graph))
+
+(defun read-input (stream)
+  (match (read-line stream nil)
+     (nil nil)
+     (line (cons (split "\\)" line) (read-input stream)))))
 
 (defun main ()
   (let*
     ((input
        (with-open-file (stream "inputs/day06")
-         (loop
-           for line = (read-line stream nil)
-           while line
-           collect (split "\\)" line))))
+         (read-input stream)))
      (directed-graph   (populate-graph (empty-map) input))
      (undirected-graph (populate-graph directed-graph (mapcar #'reverse input))))
 
-    (explore-graph directed-graph   "COM"  0 (lambda (n) (null n)) #'+)
-    (explore-graph undirected-graph "YOU" -1 (lambda (n) (string= n "SAN")) (lambda (_ d) d))))
+    (format t "~a~%"     (explore-graph   directed-graph "COM"  nil   #'+))
+    (format t "~a~%" (1- (explore-graph undirected-graph "YOU" "SAN" (lambda (_ d) d))))))
+
