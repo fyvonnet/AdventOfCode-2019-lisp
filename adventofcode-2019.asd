@@ -12,6 +12,7 @@
                         :trivia)
            :components ((:file "intcode")
                         (:file "aoc-coord")
+                        (:file "functional-queue")
                         (:file "day01")
                         (:file "day02")
                         (:file "day03")
