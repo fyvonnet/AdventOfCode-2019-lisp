@@ -3,6 +3,7 @@
            :author "Franck YVONNET"
            :serial t
            :depends-on (:alexandria
+                        :aoc-coord
                         :cl-ppcre
                         :fset
                         :iterate
@@ -11,7 +12,6 @@
                         :priority-queue
                         :trivia)
            :components ((:file "intcode")
-                        (:file "aoc-coord")
                         (:file "functional-queue")
                         (:file "day01")
                         (:file "day02")
