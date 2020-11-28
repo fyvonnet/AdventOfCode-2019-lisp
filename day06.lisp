@@ -1,5 +1,5 @@
 (defpackage :day06
-  (:use :cl :cl-ppcre :functional-queue :trivia)
+  (:use :cl :cl-ppcre :sycamore :trivia)
   (:import-from :fset
                 :contains?
                 :empty-map
@@ -14,18 +14,19 @@
 (defun explore-graph (graph start-name end-name update-solution)
   (labels
     ((rec (queue visited solution)
-       (let*
-         ((d (queue-head queue)) (depth (car d)) (name  (cdr d)))
-         (if (string= name end-name)
-           solution
-           (rec
-             (reduce
-               (lambda (q n) (queue-snoc q (cons (1+ depth) n)))
-               (remove-if (lambda (n) (contains? visited n)) (lookup graph name))
-               :initial-value (queue-tail queue))
-             (with visited name)
-             (funcall update-solution solution depth))))))
-    (rec (queue-snoc (empty-queue) (cons 0 start-name)) (empty-set) 0)))
+       (multiple-value-bind (new-queue element) (amortized-dequeue queue)
+         (let*
+           ((depth (car element)) (name  (cdr element)))
+           (if (string= name end-name)
+             solution
+             (rec
+               (reduce
+                 (lambda (q n) (amortized-enqueue q (cons (1+ depth) n)))
+                 (remove-if (lambda (n) (contains? visited n)) (lookup graph name))
+                 :initial-value new-queue)
+               (with visited name)
+               (funcall update-solution solution depth)))))))
+    (rec (amortized-enqueue (make-amortized-queue) (cons 0 start-name)) (empty-set) 0)))
 
 (defun populate-graph (graph input)
   (reduce
