@@ -1,9 +1,7 @@
 (defpackage :day06
   (:use :cl :cl-ppcre :sycamore :trivia)
   (:import-from :fset
-                :contains?
                 :empty-map
-                :empty-set
                 :lookup
                 :with)
   (:export main))
@@ -11,22 +9,28 @@
 (in-package :day06)
 
 
+(defun compare (a b)
+  (cond
+    ((string< a b) -1)
+    ((string> a b)  1)
+    (t 0)))
+
 (defun explore-graph (graph start-name end-name update-solution)
   (labels
     ((rec (queue visited solution)
        (multiple-value-bind (new-queue element) (amortized-dequeue queue)
          (let*
-           ((depth (car element)) (name  (cdr element)))
+           ((depth (car element)) (name (cdr element)))
            (if (string= name end-name)
              solution
              (rec
                (reduce
                  (lambda (q n) (amortized-enqueue q (cons (1+ depth) n)))
-                 (remove-if (lambda (n) (contains? visited n)) (lookup graph name))
+                 (remove-if (lambda (n) (tree-set-member-p visited n)) (lookup graph name))
                  :initial-value new-queue)
-               (with visited name)
+               (tree-set-insert visited name)
                (funcall update-solution solution depth)))))))
-    (rec (amortized-enqueue (make-amortized-queue) (cons 0 start-name)) (empty-set) 0)))
+    (rec (amortized-enqueue (make-amortized-queue) (cons 0 start-name)) (make-tree-set #'compare) 0)))
 
 (defun populate-graph (graph input)
   (reduce
