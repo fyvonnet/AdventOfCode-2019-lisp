@@ -4,15 +4,15 @@
            :serial t
            :depends-on (:alexandria
                         :aoc-coord
+                        :aoc-misc
                         :cl-ppcre
                         :fset
                         :iterate
-                        :queues
-                        :queues.simple-queue
+                        :leftist-heap
                         :priority-queue
+                        :sycamore
                         :trivia)
            :components ((:file "intcode")
-                        (:file "functional-queue")
                         (:file "day01")
                         (:file "day02")
                         (:file "day03")
