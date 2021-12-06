@@ -3,6 +3,8 @@
 
 (defpackage :day18
   (:use :cl :aoc-misc :aoc-coord)
+  (:import-from :alexandria :copy-array)
+  (:import-from :fset :empty-set :with :contains?)
   (:import-from :functional-queue :empty-queue :queue-snoc :queue-head :queue-tail :queue-empty-p)
   (:import-from :leftist-heap :leftist-insert :leftist-find-min :leftist-delete-min)
   (:import-from :serapeum :nlet)
@@ -11,67 +13,67 @@
 
 (in-package :day18)
 
-(defun explore-maze (maze-map matrix start)
-  (destructuring-bind (origin-key . start-coord) start
-    (let ((unexplored (make-array (array-dimensions maze-map) :initial-element t)))
-      (setf (aref-coord unexplored start-coord) nil)
-      (nlet rec ((queue (queue-snoc (empty-queue) (list 0 nil start-coord))))
-        (unless (queue-empty-p queue)
-          (rec
-            (destructuring-bind (steps doors coord) (queue-head queue)
-              (reduce
-                (lambda (q d)
-                  (let*
-                    ((new-coord (next-coord d coord))
-                     (square (aref-coord maze-map new-coord)))
-                    (if (and square (aref-coord unexplored new-coord))
-                      (progn
-                        (setf (aref-coord unexplored new-coord) nil)
-                        (queue-snoc
-                          q
-                          (cons
-                            (1+ steps)
-                            (match square
-                              ((cons :KEY found-key)
-                               (setf
-                                 (aref matrix origin-key found-key)
-                                 (list (1+ steps) doors))
-                               (list doors new-coord))
-                              ((cons :DOOR found-door)
-                               (list (cons found-door doors) new-coord))
-                              (_ (list doors new-coord))))))
-                      q)))
-                *all-absolute-dirs*
-                :initial-value (queue-tail queue)))))))))
+(defun get-bits (&optional (v 1) (n 26))
+  (unless (zerop n)
+    (cons v (get-bits (* 2 v) (1- n)))))
+
+(defvar bits (coerce (get-bits) 'vector))
+
+(defun explore-maze (maze-map queue &optional keys)
+  (if (queue-empty-p queue)
+    (reverse keys)
+    (destructuring-bind (steps doors coord) (queue-head queue)
+      (destructuring-bind (new-queue new-keys)
+        (reduce
+          (lambda (data d)
+            (destructuring-bind (q k) data
+              (let*
+                ((new-coord (next-coord d coord))
+                 (square (aref-coord maze-map new-coord)))
+                (setf (aref-coord maze-map new-coord) nil)
+                (match square
+                  (nil data)
+                  ((cons :KEY found-key)
+                   (list
+                     (queue-snoc q (list (1+ steps) doors new-coord))
+                     (cons (list found-key (1+ steps) doors) k)))
+                  ((cons :DOOR found-door)
+                   (list (queue-snoc q (list (1+ steps) (logior found-door doors) new-coord)) k))
+                  (_ (list (queue-snoc q (list (1+ steps) doors new-coord)) k))))))
+          *all-absolute-dirs*
+          :initial-value (list (queue-tail queue) keys))
+        (explore-maze maze-map new-queue new-keys)))))
 
 (defun compare (a b)
-  (< (third a) (third b)))
+  (< (first a) (first b)))
 
-(defun collect-keys (matrix heap)
-  (destructuring-bind (current-key keys-inventory path-len) (leftist-find-min heap)
-    (if (= (length keys-inventory) (array-dimension matrix 1))
-      (cons
-        path-len
-        (map 'string (lambda (x) (code-char (+ 97 x))) (reverse keys-inventory)))
-      (collect-keys
-        matrix
-        (nlet rec ((key 0) (h (leftist-delete-min heap #'compare)))
-          (if (= key (array-dimension matrix 1))
-            h
-            (rec
-              (1+ key)
-              (let ((key-data (aref matrix current-key key)))
-                (if (or (member key keys-inventory) (null key-data))
-                  h
-                  (destructuring-bind (steps doors) key-data
-                    (if (null (set-difference doors keys-inventory))
-                      (leftist-insert (list key (cons key keys-inventory) (+ path-len steps)) h #'compare)
-                      h)))))))))))
+(defun collect-keys (full-inventory matrix heap &optional (visited (empty-set)))
+  (destructuring-bind (path-len current-key keys-inventory) (leftist-find-min heap)
+    (if (= keys-inventory full-inventory)
+      path-len
+      (destructuring-bind (new-heap new-visited)
+        (reduce
+          (lambda (data next-key-data)
+            (destructuring-bind (num steps doors) next-key-data
+              (if 
+                (or
+                  (not (= doors (logand doors keys-inventory)))  ; not enough keys to open all doors
+                  (contains? visited (list num keys-inventory))) ; already encountered situation
+                data
+                (let ((new-keys-inventory (logior (aref bits num) keys-inventory)))
+                  (destructuring-bind (h v) data
+                    (list
+                      (leftist-insert (list (+ path-len steps) num new-keys-inventory) h #'compare)
+                      (with v (list num new-keys-inventory))))))))
+          (aref matrix current-key)
+          :initial-value (list (leftist-delete-min heap #'compare) visited))
+        (collect-keys full-inventory matrix new-heap new-visited)))))
 
 (defun main ()
   (let
-     ((maze-map (read-input-as-array 18))
-     (keys)
+    ((maze-map (read-input-as-array 18 #'identity))
+     (keys-num)
+     (keys-coord)
      (nkeys 0)
      (entrance)
      (matrix))
@@ -85,15 +87,29 @@
            (setf (aref-coord maze-map coord) nil))
           ((lower-case-p c)
            (let ((n (- (char-code c) (char-code #\a))))
-             (push (cons n coord) keys)
+             (push n     keys-num)
+             (push coord keys-coord)
              (setf (aref-coord maze-map coord) (cons :KEY n))
              (incf nkeys)))
           ((upper-case-p c)
            (let ((n (- (char-code c) (char-code #\A))))
-             (setf (aref-coord maze-map coord) (cons :DOOR n)))))))
+             (setf (aref-coord maze-map coord) (cons :DOOR (aref bits n))))))))
 
-    (setf matrix (make-array (list (1+ nkeys) nkeys) :initial-element nil))
-    (dolist (x (cons `(,nkeys . ,entrance) keys))
-      (explore-maze maze-map matrix x))
-    (print (collect-keys matrix (leftist-insert (list nkeys nil 0) nil #'compare)))))
+    (setf
+      matrix
+      (coerce
+        (mapcar
+          #'cdr
+          (sort
+            (mapcar
+              (lambda (num coord)
+                (let ((maze-map-copy (copy-array maze-map)))
+                  (setf (aref-coord maze-map-copy coord) nil)
+                  (cons num (explore-maze maze-map-copy (queue-snoc (empty-queue) (list 0 0 coord))))))
+              (cons nkeys keys-num)
+              (cons entrance keys-coord))
+            (lambda (a b) (< (first a) (first b)))))
+        'vector))
+
+    (print (collect-keys (1- (aref bits nkeys)) matrix (leftist-insert (list 0 nkeys 0) nil #'compare)))))
 
