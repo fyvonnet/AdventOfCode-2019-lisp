@@ -5,8 +5,8 @@
   (:import-from :fset :empty-map :with :lookup)
   (:import-from :functional-queue :empty-queue :queue-snoc :queue-head :queue-tail :queue-empty-p)
   (:import-from :leftist-heap :leftist-insert :leftist-find-min :leftist-delete-min)
-  (:import-from :serapeum :nlet)
   (:import-from :trivia :match)
+  (:import-from :forfuncs :for/fold)
   (:export main))
 
 (in-package :day18)
@@ -25,26 +25,24 @@
   (if (queue-empty-p queue)
     (reverse keys)
     (destructuring-bind (steps doors coord) (queue-head queue)
-      (multiple-value-bind (new-queue new-keys)
-        (nlet rec ((dirs *all-absolute-dirs*) (q (queue-tail queue)) (k keys))
-          (if (null dirs)
-            (values q k)
-            (destructuring-bind (d &rest rest) dirs
-              (let*
-                ((new-coord (next-coord d coord))
-                 (square (aref-coord maze-map new-coord)))
-                (setf (aref-coord maze-map new-coord) nil)
-                (match square
-                  (nil (rec rest q k))
-                  ((cons :KEY found-key)
-                   (rec
-                     rest
-                     (queue-snoc q (list (1+ steps) doors new-coord))
-                     (cons (list found-key (1+ steps) doors) k)))
-                  ((cons :DOOR found-door)
-                   (rec rest (queue-snoc q (list (1+ steps) (logior found-door doors) new-coord)) k))
-                  (_ (rec rest (queue-snoc q (list (1+ steps) doors new-coord)) k)))))))
-        (explore-maze maze-map new-queue new-keys)))))
+      (for/fold
+        ((q (queue-tail queue))
+         (k keys))
+        ((dir *all-absolute-dirs*))
+        (let*
+          ((new-coord (next-coord dir coord))
+           (square (aref-coord maze-map new-coord)))
+          (setf (aref-coord maze-map new-coord) nil)
+          (match square
+            (nil (values q k))
+            ((cons :KEY found-key)
+             (values
+               (queue-snoc q (list (1+ steps) doors new-coord))
+               (cons (list found-key (1+ steps) doors) k)))
+            ((cons :DOOR found-door)
+             (values (queue-snoc q (list (1+ steps) (logior found-door doors) new-coord)) k))
+            (_ (values (queue-snoc q (list (1+ steps) doors new-coord)) k))))
+        :result (explore-maze maze-map q k)))))
 
 (defun compare (a b)
   (<
@@ -55,29 +53,28 @@
   (destructuring-bind (path-len current-key keys-inventory remkeys) (leftist-find-min heap)
     (if (= keys-inventory full-inventory)
       path-len
-      (multiple-value-bind (new-heap new-visited)
-        (nlet rec ((next-keys (aref matrix current-key)) (h (leftist-delete-min heap #'compare)) (v visited))
-          (if (null next-keys)
+      (for/fold
+        ((h (leftist-delete-min heap #'compare))
+         (v visited))
+        ((next-key (aref matrix current-key)))
+        (destructuring-bind (num steps doors) next-key
+          (if 
+            (or
+              (plusp (logand (aref bits num) keys-inventory)) ; already have the key
+              (not (= doors (logand doors keys-inventory))))  ; not enough keys to open all doors
             (values h v)
-            (destructuring-bind (num steps doors) (car next-keys)
-              (if 
-                (or
-                  (plusp (logand (aref bits num) keys-inventory)) ; already have the key
-                  (not (= doors (logand doors keys-inventory))))  ; not enough keys to open all doors
-                (rec (cdr next-keys) h v)
-                (let*
-                  ((new-keys-inventory (logior (aref bits num) keys-inventory))
-                   (visited-key (list num new-keys-inventory))
-                   (visited-steps (lookup v visited-key))
-                   (new-path-len (+ path-len steps)))
-                  ; a similar key/inventory situation has already been encountered with less steps
-                  (if (and visited-steps (< visited-steps new-path-len))
-                    (rec (cdr next-keys) h v)
-                    (rec
-                      (cdr next-keys)
-                      (leftist-insert (list (+ path-len steps) num new-keys-inventory (- remkeys n-heur)) h #'compare)
-                      (with v visited-key new-path-len))))))))
-        (collect-keys full-inventory matrix new-heap new-visited)))))
+            (let*
+              ((new-keys-inventory (logior (aref bits num) keys-inventory))
+               (visited-key (list num new-keys-inventory))
+               (visited-steps (lookup v visited-key))
+               (new-path-len (+ path-len steps)))
+              ; a similar key/inventory situation has already been encountered with less steps
+              (if (and visited-steps (< visited-steps new-path-len))
+                (values h v)
+                (values
+                  (leftist-insert (list (+ path-len steps) num new-keys-inventory (- remkeys n-heur)) h #'compare)
+                  (with v visited-key new-path-len))))))
+        :result (collect-keys full-inventory matrix h v)))))
 
 (defun main ()
   (let
